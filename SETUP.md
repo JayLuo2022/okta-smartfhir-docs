@@ -23,7 +23,7 @@ For an overview of this project and all of the components, please see here: [Pro
 In this section, we'll do some initial Okta setup, as well as deploy all of the requisite endpoints to our chosen cloud serverless platform.
 
 ### Step 1- Install and configure the serverless framework
-* [Get started here](https://www.serverless.com/framework/docs/getting-started/#via-npm)
+* [Get started here](https://www.serverless.com/framework/docs/getting-started/#via-npm) (Install serverless)
 * [Provide the platform with AWS credentials](https://www.serverless.com/framework/docs/providers/aws/guide/credentials/)
 
 ### Step 2- Clone the reference implementation repository into your development machine filesystem.
@@ -58,15 +58,19 @@ Don't worry about any other authorization server configurations- it'll be fully 
 
 Update the serverless.yml with the proper details:
 ```yaml
-AUTHZ_ISSUER: https://_YOUR_ORG_.oktapreview.com/oauth2/_YOUR_AUTHZ_SERVER_
+#Get AUTHZ_ISSUER from Security→ API → Click the Authorization server you created and →setting → Metadata URL: the first key “issuer“ includes AUTHZ_ISSUER
+AUTHZ_ISSUER: https://_YOUR_ORG_.okta.com/oauth2/_YOUR_AUTHZ_SERVER_
 AUTHZ_SERVER: _YOUR_AUTHZ_SERVER_
-OKTA_ORG: _YOUR_ORG_.oktapreview.com
+OKTA_ORG: _YOUR_ORG_.okta.com
 ```
 
 ### Step 7- Create the Patient Picker application in Okta
 In Okta, create a new OIDC web application (in the applications menu), using the authorization code flow only.  Remember to assign your users to this app.
 Update the serverless.yml file with the proper details:
 ```yaml
+#Go to Okta→application→ Patient Picker application → General:
+#Client Credentials → Client ID for PICKER_CLIENT_ID 
+#Client Secrets → Secret for PICKER_CLIENT_SECRET
 PICKER_DISPLAY_NAME: Patient Picker
 PICKER_CLIENT_ID: _CLIENT_ID_FOR_PATIENT_PICKER_
 PICKER_CLIENT_SECRET: _CLIENT_SECRET_FOR_PATIENT_PICKER_
@@ -79,11 +83,13 @@ Update the serverless.yml file with the proper details:
 ```yaml
 API_KEY: _AN_API_KEY_
 ```
+_AN_API_KEY_ is the token value in the screenshot.
+![API KEY Example](./images/API_KEY_TOKEN.png "Token Value as API KEY")
 
 ### Step 9- Deploy!
 To deploy this example, run the following command:
 ```bash
-serverless deploy -v
+serverless deploy 
 ```
 
 At this point you should have a number of serverless functions in AWS (until other clouds are supported).  Continue on to setup the rest of the assets in Okta to support this reference implementation.
@@ -109,7 +115,7 @@ The token hook is executed at runtime by Okta, and is responsible for ensuring t
 If an attacker (or curious user) attempts to alter the authorization request data, or bypass the custom consent screen altogether- the token hook will fail validation, and then entire authorization request will fail.
 
 To configure the token hook, use the Workflows->Inline Hooks menu to create a "Token Inline Hook" as shown:
-Note: the value you'll use is the URL for your API Gateway URL + tokenhook. Example: `https://{uid}.execute-api.{region}.amazonaws.com/{stage}/tokenhook`
+Note: the value you'll use is the URL for your API Gateway URL + tokenhook. Example (found in outputs of serverless deploy): `https://{uid}.execute-api.{region}.amazonaws.com/{stage}/tokenhook`
 ![Token Hook Example](./images/token_hook_example.png "Token Hook Example")
 
 ## Okta Authorization Server Configuration
@@ -118,14 +124,21 @@ A key element in this reference SMART/FHIR implementation is a properly configur
 Update the "audience" of the authorization server to match the url of your FHIR Resource Server. See [2.5.1](https://docs.smarthealthit.org/authorization/best-practices/).
 The reference implementation comes with example resource server endpoints- so if you're using this implementation for example/reference purposes, this value will take the form: https://xxxyyy.execute-api.us-east-1.amazonaws.com/dev
 
+(After completing the deployment of Smart FHIR, run the following part to update the audience)
+* Find https://xxxyyy.execute-api.us-east-1.amazonaws.com/dev in the apiGatewayRestApiEndpoint key( shows in the outputs of deployment of Smart FHIR or Info_Output.log in Smart FHIR) to update the audience part for the autorization server of Okata:  (Okta→Security→API→Authorization Server you created -> Settings -> Audience)  
+* Update EXPECTED_AUD_VALUE using the same apiGatewayRestApiEndpoint in serverless.yml for the "audience"
+* Redeploy serverless 
+```yaml
+serverless deploy
+```
 ### Scopes
 The first piece of configuration required is to setup the valid SMART authorization scopes in Okta as valid scopes (in the Security->API->Authorization Servers menu).
 
-The following document contains a sample API call that can be used to create all of the claims/scopes necessary.
-<<TODO: Generate this script>>
+The following document contains a sample API call that can be used to create all of the claims/scopes necessary.<<TODO: Generate this script>>
 
-Below are a few example scopes that can be configured manually. For a full list of SMART scopes see this [link](http://www.hl7.org/fhir/smart-app-launch/scopes-and-launch-context/index.html#clinical-scope-syntax).
-![Scopes Example](./images/scopes_example.png "Scopes Example")
+Below are a few example scopes that can be configured manually. All scopes shows in the following table
+(Display Name,Description are the contents you can define by yourself since they will not affect the setup)
+![Scopes Example](./images/Scopes.png "Scopes")
 
 ### Claims
 Given that the bulk of the SMART specification relies on OAuth2 (and supports opaque tokens), there are minimal requirements for setting up claims in Okta.
@@ -148,7 +161,7 @@ For example, a claim in Okta called "launch_response_patient" will cause the tok
 #### FHIR User
 
 * Claim Name: fhirUser
-* Claim Value: `(user.fhirUser != null) ? user.fhirUser : 'Patient/' + user.patient_id`
+* Claim Value: `user.fhirUser`
 * Include with Scope: fhirUser
 * Include in: Access Token
 * **Note:** Adding this claim to the `access_token` is not strictly required by the SMART specification but when interacting with your FHIR Server this is a secure method to authenticate who the requestor is.
@@ -156,13 +169,13 @@ For example, a claim in Okta called "launch_response_patient" will cause the tok
 #### FHIR User (OpenID Connect Claim)
 
 * Claim Name: fhirUser
-* Claim Value: `(user.fhirUser != null) ? user.fhirUser : 'Patient/' + user.patient_id`
-* Include with Scope: fhirUser
+* Claim Value: `user.fhirUser`
+* Include with Scope: openid,fhirUser
 * Include in: ID Token
 
 An example screenshot is shown below:
 
-![Claims Example](./images/claims_example.png "Claims Example")
+![Claims Example](./images/claims.png "Claims")
 
 ### Access Policies
 Access Policies in Okta determine security controls for applications and users as they authorize via OIDC/OAuth2.  They detrermine which scopes an application may request, which ones may obtain a refresh token, token lifetimes, as well as other parameters.
@@ -191,124 +204,3 @@ Note: Okta's Access Policies execute in a prioritized "first match" manner.  Thi
 ![Policy Priority](./images/access_policy_priority.png "Policy Priority")
 
 
-## SMART Client Registration - Confidential
-There are no special considerations for creating confidential SMART clients.  The dynamic client registration protocol may be used, or for demonstration purposes, the Okta admin UI may be used to create a confidential client as shown.
-
-**_Important settings_**:
-* Application Type: Web
-* Allowed Grant Types: Authorization Code only
-* Consent: Not required (it's handled by a custom screen - not Okta default consent screen)
-* Redirect URI: 2 values shall be put here!
-  * The smart_proxy_callback URL that you were provided when you deployed the Okta-SMART endpoints.
-  * The actual redirect_url of the application (this is validated by the /authorize proxy)
-
-![Confidential Client Example](./images/confidential_client_example.png "Confidential Client Example")
-
-## SMART Client Registration - Public
-Public SMART clients do require some additional configuration over/above what's possible in the Okta admin console.  This is due to the fact that the Okta-SMART /token proxy uses [private_key_jwt](https://developer.okta.com/docs/reference/api/oidc/#jwt-with-private-key) client authentication with Okta.
-
-The easiest way to create one of these clients is to either use dynamic client registration, or use the Okta applications API to create the app.
-
-An example API call is shown below.  An important aspect of the API call is the jwks object.
-The JWKS value can be found by visiting the /keys endpoint included in your SMART-Okta endpoints deployed as part of the prerequisites.
-```bash
-curl -v -X POST \
--H "Accept: application/json" \
--H "Content-Type: application/json" \
--H "Authorization: SSWS ${api_token}" \
--d '{
-		"name": "oidc_client",
-		"label": "Sample Public SMART Client",
-		"signOnMode": "OPENID_CONNECT",
-		"credentials": {
-			"oauthClient": {
-				"token_endpoint_auth_method": "private_key_jwt"
-			}
-		},
-		"settings": {
-			"oauthClient": {
-				"client_uri": null,
-				"logo_uri": null,
-				"redirect_uris": [
-					"https://smart-proxy-callback-url",
-					"https://actual-app-callback-url"
-				],
-				"response_types": [
-					"code"
-				],
-				"grant_types": [
-					"authorization_code"
-				],
-				"application_type": "web",
-				"consent_method": "TRUSTED",
-				"jwks": CONTENT_FROM_KEYS_ENDPOINT_HERE,
-		}
-}' "https://${yourOktaDomain}/api/v1/apps"
-```
-
-If the call was successful, you will be presented with the entire application object, and it should look like  the following:
-The really important pieces are the:
-* token_endpoint_auth_method: The value should be "private_key_jwt"
-* jwks: This entire object should exist on the application object coming back, and should look similar to the example shown.
-
-Note: Some parts of the application object have been removed from this example to shorten it up.
-```json
-{
-    "id": "fdaghjk",
-    "name": "oidc_client",
-    "label": "Sample Public SMART Client",
-    "status": "ACTIVE",
-    "lastUpdated": "2021-01-19T19:16:08.000Z",
-    "created": "2021-01-19T19:16:07.000Z",
-    "features": [],
-    "signOnMode": "OPENID_CONNECT",
-    "credentials": {
-        "userNameTemplate": {
-            "template": "${source.login}",
-            "type": "BUILT_IN"
-        },
-        "signing": {
-            "kid": "CaJJtJQa3JpDjeElxwznCO6tA1BrkpRehrUdwxHcuxY"
-        },
-        "oauthClient": {
-            "autoKeyRotation": true,
-            "client_id": "0oa9njv65d4piV8kE2p7",
-            "token_endpoint_auth_method": "private_key_jwt"
-        }
-    },
-    "settings": {
-        "oauthClient": {
-            "client_uri": null,
-            "logo_uri": null,
-            "redirect_uris": [
-                "https://smart-proxy-callback-url",
-                "https://actual-app-callback-url"
-            ],
-            "response_types": [
-                "code"
-            ],
-            "grant_types": [
-                "authorization_code"
-            ],
-            "jwks": {
-                "keys": [
-                    {
-                        "kty": "RSA",
-                        "kid": null,
-                        "use": null,
-                        "e": "AQAB",
-                        "n": "q1oGvoqzaswn08dqJZl6A5USqiVvZA-JYa3QwEJ-kXnl-fHoCqtx8TOI3xYG29F5UhFt-gQukVHh8xh4dmW2phDnRahqtbuuk4qkepL0k3E57WRGKgp_fqwFxzpGEgq__KAfH7dUYNwpS1APrgPN1DlkdKdrtaL956Zxjad01MURLQRnR0lClCZoNXqgasx_aF7Wwu-iscSUiOA-oeHl4RNWMJPkEy9vaUVc39rLhTVu534cGA3Vw4y8SaJ8S0-Np6Zzl8S8eedKdTsGLvDi5pmgqJCW_4nKxl6jGefgsj5MOPXeHzbPBh8ZbMyrxVWd_Aqck4LcB7JX6sKPFMOSRQ"
-                    }
-                ]
-            },
-            "application_type": "web",
-            "consent_method": "TRUSTED",
-            "issuer_mode": "CUSTOM_URL",
-            "idp_initiated_login": {
-                "mode": "DISABLED",
-                "default_scope": []
-            }
-        }
-    },
-}
-```
