@@ -175,7 +175,7 @@ For example, a claim in Okta called "launch_response_patient" will cause the tok
 
 An example screenshot is shown below:
 
-![Claims Example](./images/claims.png "Claims")
+![Claims Example](./images/claims.png "Claims example")
 
 ### Access Policies
 Access Policies in Okta determine security controls for applications and users as they authorize via OIDC/OAuth2.  They detrermine which scopes an application may request, which ones may obtain a refresh token, token lifetimes, as well as other parameters.
