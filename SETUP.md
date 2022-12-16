@@ -124,10 +124,10 @@ A key element in this reference SMART/FHIR implementation is a properly configur
 Update the "audience" of the authorization server to match the url of your FHIR Resource Server. See [2.5.1](https://docs.smarthealthit.org/authorization/best-practices/).
 The reference implementation comes with example resource server endpoints- so if you're using this implementation for example/reference purposes, this value will take the form: https://xxxyyy.execute-api.us-east-1.amazonaws.com/dev
 
-(After completing the deployment of Smart FHIR, run the following part to update the audience)
+(After completing the deployment of FHIR Works SMART, run the following part to update the audience)
 * Find https://xxxyyy.execute-api.us-east-1.amazonaws.com/dev in the apiGatewayRestApiEndpoint key( shows in the outputs of deployment of Smart FHIR or Info_Output.log in Smart FHIR) to update the audience part for the autorization server of Okata:  (Okta→Security→API→Authorization Server you created -> Settings -> Audience)  
 * Update EXPECTED_AUD_VALUE using the same apiGatewayRestApiEndpoint in serverless.yml for the "audience"
-* Redeploy serverless 
+* Redeploy the Okta stack
 ```yaml
 serverless deploy
 ```
